@@ -1,0 +1,13 @@
+{
+  "name": "@kodaal/guppy-browser-ext",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "build": "node scripts/build.mjs all",
+    "build:chromium": "node scripts/build.mjs chromium",
+    "build:firefox": "node scripts/build.mjs firefox",
+    "test": "node --test tests/*.test.mjs",
+    "validate": "node scripts/validate-extension.mjs"
+  }
+}

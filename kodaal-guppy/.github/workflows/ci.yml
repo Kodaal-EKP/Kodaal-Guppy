@@ -1,0 +1,74 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  core:
+    name: core-${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-14, windows-2022]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt, clippy
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+      - name: Install Rust gates
+        run: |
+          cargo install cargo-deny --version 0.19.4 --locked
+          cargo install cargo-llvm-cov --version 0.6.16 --locked
+      - name: Format
+        run: cargo fmt --all -- --check
+      - name: Lint
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Test
+        run: cargo test --workspace
+      - name: Browser extension tests
+        run: |
+          node browser-ext/scripts/validate-extension.mjs
+          node --test browser-ext/tests/*.test.mjs
+      - name: IDE extension tests
+        run: |
+          node ide-ext/vscode/scripts/validate-extension.mjs
+          node --test ide-ext/vscode/tests/*.test.mjs
+      - name: Static gates (public repo — no internal Docs/)
+        run: |
+          python scripts/check_markdown_links.py
+          python scripts/check_file_size.py
+          python scripts/check_no_banned_patterns.py
+          python scripts/check_placeholders.py
+          python scripts/check_no_outbound_or_telemetry.py
+          python scripts/check_dependency_pins.py
+          python scripts/check_cargo_licenses.py
+          python scripts/check_cargo_deny.py
+          python scripts/check_ui_accessibility_static.py
+          python scripts/check_package_artifacts.py
+      - name: Coverage
+        if: matrix.os == 'ubuntu-24.04'
+        shell: pwsh
+        run: ./scripts/check_coverage.ps1
+      - name: Release binary
+        shell: pwsh
+        run: ./scripts/build_release.ps1
+      - name: Static binary inspection
+        shell: pwsh
+        run: ./scripts/check_static_binary.ps1
+
+  reproducible:
+    name: reproducible-linux
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.95.0
+      - name: Verify reproducible release binary
+        shell: pwsh
+        run: ./scripts/check_reproducible_build.ps1

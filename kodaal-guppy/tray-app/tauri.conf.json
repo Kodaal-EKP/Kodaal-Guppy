@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Kodaal Guppy",
+  "version": "0.1.0",
+  "identifier": "com.kodaal.guppy.tray",
+  "build": {
+    "frontendDist": "assets"
+  },
+  "app": {
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "targets": "all",
+    "icon": [
+      "icons/icon.ico",
+      "icons/tray-active.png"
+    ]
+  }
+}

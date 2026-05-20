@@ -1,0 +1,72 @@
+{
+  "name": "kodaal-guppy-vscode",
+  "displayName": "Kodaal Guppy",
+  "description": "Local-first prompt capture for VS Code, Cursor, and Windsurf.",
+  "version": "0.1.0",
+  "publisher": "kodaal",
+  "private": true,
+  "engines": {
+    "vscode": ">=1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:kodaal.saveCurrentPrompt",
+    "onCommand:kodaal.pauseCapture",
+    "onCommand:kodaal.resumeCapture",
+    "onCommand:kodaal.openWorkspace",
+    "onCommand:kodaal.suggestSimilarPrompt"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "kodaal.saveCurrentPrompt",
+        "title": "Kodaal: Save Current Prompt"
+      },
+      {
+        "command": "kodaal.pauseCapture",
+        "title": "Kodaal: Pause Capture"
+      },
+      {
+        "command": "kodaal.resumeCapture",
+        "title": "Kodaal: Resume Capture"
+      },
+      {
+        "command": "kodaal.openWorkspace",
+        "title": "Kodaal: Open Workspace"
+      },
+      {
+        "command": "kodaal.suggestSimilarPrompt",
+        "title": "Kodaal: Suggest Similar Prompt"
+      }
+    ],
+    "configuration": {
+      "title": "Kodaal Guppy",
+      "properties": {
+        "kodaal.endpoint": {
+          "type": "string",
+          "default": "http://127.0.0.1:7878",
+          "description": "Local Kodaal core endpoint."
+        },
+        "kodaal.capture.ideWatchers": {
+          "type": "boolean",
+          "default": true,
+          "description": "Capture user-authored prompts from supported local IDE chat logs."
+        },
+        "kodaal.suggestions.ideTypingHints": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Kodaal's local similar-prompt hint in the status bar while typing active editor draft text. The core app setting must also enable smart suggestions."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/package.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "validate": "node scripts/validate-extension.mjs"
+  }
+}

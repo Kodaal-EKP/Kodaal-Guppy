@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kodaal Guppy</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="top">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <h1>Kodaal Guppy</h1>
+          <p id="connection">Checking local core</p>
+        </div>
+      </header>
+
+      <section id="setup" class="panel hidden" aria-labelledby="setup-title">
+        <h2 id="setup-title">Setup</h2>
+        <p>Paste the local token from the Kodaal app.</p>
+        <label for="token-input">Token</label>
+        <input id="token-input" type="password" autocomplete="off" spellcheck="false">
+        <button id="save-token" type="button">Save token</button>
+        <p id="setup-error" class="error" role="status"></p>
+      </section>
+
+      <section id="controls" class="panel hidden" aria-label="Capture controls">
+        <div class="row">
+          <span id="global-state">Capturing</span>
+          <button id="pause-toggle" type="button">Pause</button>
+        </div>
+        <div class="row">
+          <span id="tab-label">This tab</span>
+          <button id="tab-toggle" type="button">Disable</button>
+        </div>
+      </section>
+
+      <section id="recent-panel" class="panel hidden" aria-labelledby="recent-title">
+        <h2 id="recent-title">Recent captures</h2>
+        <ul id="recent"></ul>
+      </section>
+
+      <footer class="footer">
+        <button id="open-ui" type="button">Open workspace</button>
+        <button id="sync-now" type="button">Sync</button>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

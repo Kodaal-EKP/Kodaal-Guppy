@@ -1,0 +1,72 @@
+fmt:
+  cargo fmt --all -- --check
+
+lint:
+  cargo clippy --workspace --all-targets -- -D warnings
+
+test:
+  cargo test --workspace
+
+tray-test:
+  cargo test -p kodaal-tray --lib
+
+tray-check:
+  cargo check -p kodaal-tray --features desktop --bin kodaal-tray
+
+trace *ARGS:
+  python scripts/check_traceability.py {{ARGS}}
+
+trace-check:
+  python scripts/check_traceability.py --check
+
+browser:
+  node browser-ext/scripts/validate-extension.mjs
+  node --test browser-ext/tests/*.test.mjs
+  node browser-ext/scripts/build.mjs all
+
+ide:
+  node ide-ext/vscode/scripts/validate-extension.mjs
+  node --test ide-ext/vscode/tests/*.test.mjs
+  node ide-ext/vscode/scripts/package.mjs
+
+check:
+  just fmt
+  just lint
+  just test
+  just tray-check
+  just trace-check
+  just browser
+  just ide
+  python scripts/check_file_size.py
+  python scripts/check_api_parity.py
+  python scripts/check_no_banned_patterns.py
+  python scripts/check_placeholders.py
+  python scripts/check_no_outbound_or_telemetry.py
+  python scripts/check_dependency_pins.py
+  python scripts/check_cargo_licenses.py
+  python scripts/check_cargo_deny.py
+  python scripts/check_ui_accessibility_static.py
+  just coverage
+  python scripts/check_package_artifacts.py
+  powershell -ExecutionPolicy Bypass -File scripts/build_release.ps1
+  powershell -ExecutionPolicy Bypass -File scripts/check_static_binary.ps1
+
+install-smoke-windows:
+  powershell -ExecutionPolicy Bypass -File scripts/check_installer_feasibility.ps1
+
+reliability-smoke:
+  powershell -ExecutionPolicy Bypass -File scripts/check_crash_durability.ps1
+  powershell -ExecutionPolicy Bypass -File scripts/check_time_to_first_capture.ps1
+
+resource-smoke:
+  powershell -ExecutionPolicy Bypass -File scripts/check_idle_resources.ps1 -DurationSeconds 300
+  powershell -ExecutionPolicy Bypass -File scripts/check_zero_egress_local.ps1
+
+coverage:
+  powershell -ExecutionPolicy Bypass -File scripts/check_coverage.ps1
+
+verify-reproducible:
+  powershell -ExecutionPolicy Bypass -File scripts/check_reproducible_build.ps1
+
+build-tray:
+  cargo build -p kodaal-tray --features desktop --bin kodaal-tray --release

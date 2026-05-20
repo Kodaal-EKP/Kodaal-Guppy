@@ -1,0 +1,19 @@
+Register-ArgumentCompleter -Native -CommandName kodaal -ScriptBlock {
+  param($wordToComplete, $commandAst, $cursorPosition)
+  $commands = @(
+    'start','stop','restart','status','pause','resume','search','suggest','recent','show','copy','delete','favorite',
+    'tag','untag','prune','import','projects','tags','stats','blocklist','artifact','export','config',
+    'rotate-token','install','uninstall','completion','doctor','mcp-server','version'
+  )
+  $tokens = $commandAst.CommandElements | ForEach-Object { $_.ToString() }
+  $values = switch ($tokens[1]) {
+    'completion' { @('bash','zsh','fish','powershell') }
+    'projects' { @('list','show','rename','color','delete') }
+    'artifact' { @('attach','delete','content','copy','storage') }
+    'config' { @('path','show','validate') }
+    default { $commands }
+  }
+  $values | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
+    [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterValue', $_)
+  }
+}

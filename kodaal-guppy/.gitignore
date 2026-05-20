@@ -1,0 +1,22 @@
+.env
+credentials.json
+token.json
+
+# Internal docs — keep local only for public GitHub
+Docs/
+
+# Local-only AI brief and brand logo assets
+.cursorrules
+Logo/
+
+.tmp/
+.kodaal-dev/
+.kodaal-dev*/
+target/
+tray-app/gen/
+dist/
+node_modules/
+*.log
+*.db
+*.db-shm
+*.db-wal

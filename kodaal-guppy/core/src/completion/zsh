@@ -1,0 +1,10 @@
+#compdef kodaal
+_arguments \
+  '1:command:(start stop restart status pause resume search suggest recent show copy delete favorite tag untag prune import projects tags stats blocklist artifact export config rotate-token install uninstall completion doctor mcp-server version)' \
+  '*::arg:->args'
+case $words[2] in
+  completion) _values shell bash zsh fish powershell ;;
+  projects) _values project-command list show rename color delete ;;
+  artifact) _values artifact-command attach delete content copy storage ;;
+  config) _values config-command path show validate ;;
+esac

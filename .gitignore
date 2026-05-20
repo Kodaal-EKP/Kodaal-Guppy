@@ -1,0 +1,14 @@
+# Separate tooling — not part of Kodaal Guppy product
+AutoResearch_Agent_Pack/
+
+# Internal documentation (not for public repo; may contain local paths / owner names)
+kodaal-guppy/Docs/
+
+# Local-only AI brief and brand assets (not for public repo)
+kodaal-guppy/.cursorrules
+kodaal-guppy/Logo/
+
+# Secrets (never commit)
+.env
+credentials.json
+token.json

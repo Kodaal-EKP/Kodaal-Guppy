@@ -1,0 +1,14 @@
+pub mod app;
+pub mod auth;
+pub mod cli;
+pub mod config;
+pub mod db;
+pub mod error;
+pub mod http_api;
+pub mod ids;
+pub mod local_api;
+pub mod mcp;
+pub mod paths;
+pub mod server;
+pub mod ui;
+pub mod watchers;

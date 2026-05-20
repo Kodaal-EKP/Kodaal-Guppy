@@ -1,0 +1,1345 @@
+openapi: 3.1.0
+info:
+  title: Kodaal Guppy Local API
+  version: 0.1.0
+  description: |
+    Machine-readable mirror of Docs/Specs/API_SPEC.md.
+    Bound to 127.0.0.1 by default. /api/* routes require either
+    X-Kodaal-Token or the HttpOnly same-origin kg_ui_session cookie.
+    /healthz, /ui, /ui/*, and OPTIONS preflights are explicitly unauthenticated.
+servers:
+  - url: http://127.0.0.1:7878
+security:
+  - KodaalToken: []
+  - UiSession: []
+tags:
+  - name: Health
+  - name: Prompts
+  - name: Tags
+  - name: Projects
+  - name: Artifacts
+  - name: Capture
+  - name: Stats
+  - name: Export
+  - name: UI
+paths:
+  /healthz:
+    get:
+      tags: [Health]
+      summary: Service health
+      security: []
+      responses:
+        "200":
+          description: Alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /api/prompts:
+    post:
+      tags: [Prompts]
+      summary: Ingest a new prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CapturePayload"
+      responses:
+        "201":
+          description: Created or deduplicated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "413":
+          $ref: "#/components/responses/PayloadTooLarge"
+    get:
+      tags: [Prompts]
+      summary: List, search, and filter prompts
+      parameters:
+        - $ref: "#/components/parameters/Q"
+        - $ref: "#/components/parameters/ProjectIdQuery"
+        - $ref: "#/components/parameters/SourceQuery"
+        - $ref: "#/components/parameters/SourceAppQuery"
+        - $ref: "#/components/parameters/TagQuery"
+        - $ref: "#/components/parameters/FavoriteQuery"
+        - $ref: "#/components/parameters/FromQuery"
+        - $ref: "#/components/parameters/ToQuery"
+        - $ref: "#/components/parameters/SortQuery"
+        - $ref: "#/components/parameters/LimitQuery"
+        - $ref: "#/components/parameters/OffsetQuery"
+      responses:
+        "200":
+          description: Prompt list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptList"
+  /api/prompts/suggestions:
+    get:
+      tags: [Prompts]
+      summary: Suggest similar local prompts for CLI and IDE drafts
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 10000
+        - in: query
+          name: surface
+          required: true
+          schema:
+            type: string
+            enum: [cli, ide]
+        - $ref: "#/components/parameters/SourceAppQuery"
+        - $ref: "#/components/parameters/ProjectIdQuery"
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 10
+            default: 3
+      responses:
+        "200":
+          description: Similar local prompts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PromptSuggestionList"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+  /api/prompts/{id}:
+    parameters:
+      - $ref: "#/components/parameters/PromptId"
+    get:
+      tags: [Prompts]
+      summary: Fetch one prompt
+      responses:
+        "200":
+          description: Prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prompt"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Prompts]
+      summary: Update favorite state or conversation title
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                favorite:
+                  type: boolean
+                conversation_title:
+                  type: [string, "null"]
+                  maxLength: 200
+      responses:
+        "200":
+          description: Updated prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prompt"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Prompts]
+      summary: Delete a prompt
+      responses:
+        "204":
+          description: Deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/prompts/{id}/reuse:
+    parameters:
+      - $ref: "#/components/parameters/PromptId"
+    post:
+      tags: [Prompts]
+      summary: Increment use count
+      responses:
+        "200":
+          description: Updated reuse counters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReuseResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/prompts/prune:
+    post:
+      tags: [Prompts]
+      summary: Bulk delete prompts by criteria
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PruneRequest"
+      responses:
+        "200":
+          description: Prune result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PruneResponse"
+  /api/tags:
+    get:
+      tags: [Tags]
+      summary: List all tags with counts
+      responses:
+        "200":
+          description: Tags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Tag"
+  /api/prompts/{id}/tags:
+    parameters:
+      - $ref: "#/components/parameters/PromptId"
+    post:
+      tags: [Tags]
+      summary: Add a tag to a prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 64
+      responses:
+        "200":
+          description: Updated prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Prompt"
+  /api/prompts/{id}/tags/{tag_id}:
+    parameters:
+      - $ref: "#/components/parameters/PromptId"
+      - $ref: "#/components/parameters/TagId"
+    delete:
+      tags: [Tags]
+      summary: Remove a tag from a prompt
+      responses:
+        "204":
+          description: Removed
+  /api/projects:
+    get:
+      tags: [Projects]
+      summary: List projects
+      responses:
+        "200":
+          description: Projects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+  /api/projects/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectId"
+    get:
+      tags: [Projects]
+      summary: Fetch one project
+      responses:
+        "200":
+          description: Project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    patch:
+      tags: [Projects]
+      summary: Rename or recolor a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                color:
+                  type: string
+                  pattern: "^#[0-9a-fA-F]{6}$"
+      responses:
+        "200":
+          description: Updated project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      tags: [Projects]
+      summary: Delete a project without deleting prompts
+      responses:
+        "204":
+          description: Deleted
+  /api/prompts/{id}/artifacts:
+    parameters:
+      - $ref: "#/components/parameters/PromptId"
+    post:
+      tags: [Artifacts]
+      summary: Manually attach a file to a prompt
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AttachArtifactRequest"
+      responses:
+        "201":
+          description: Attached artifact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artifact"
+  /api/prompts/{id}/artifacts/{aid}:
+    parameters:
+      - $ref: "#/components/parameters/PromptId"
+      - $ref: "#/components/parameters/ArtifactAid"
+    delete:
+      tags: [Artifacts]
+      summary: Unlink an artifact
+      responses:
+        "204":
+          description: Unlinked
+  /api/artifacts/{aid}/copy:
+    parameters:
+      - $ref: "#/components/parameters/ArtifactAid"
+    post:
+      tags: [Artifacts]
+      summary: Copy artifact contents into a target project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CopyArtifactRequest"
+      responses:
+        "200":
+          description: Copy result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CopyArtifactResponse"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "410":
+          $ref: "#/components/responses/Gone"
+  /api/artifacts/{aid}/content:
+    parameters:
+      - $ref: "#/components/parameters/ArtifactAid"
+    get:
+      tags: [Artifacts]
+      summary: Read artifact contents for preview
+      responses:
+        "200":
+          description: Artifact bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /api/artifacts/{aid}:
+    parameters:
+      - $ref: "#/components/parameters/ArtifactAid"
+    patch:
+      tags: [Artifacts]
+      summary: Toggle artifact storage mode
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [storage_mode]
+              additionalProperties: false
+              properties:
+                storage_mode:
+                  $ref: "#/components/schemas/StorageMode"
+      responses:
+        "200":
+          description: Updated artifact
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artifact"
+  /api/artifacts/verify:
+    post:
+      tags: [Artifacts]
+      summary: Verify reference artifact links
+      responses:
+        "200":
+          description: Artifact verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactVerification"
+  /api/capture/pause:
+    post:
+      tags: [Capture]
+      summary: Pause capture globally
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                reason:
+                  type: string
+                  maxLength: 200
+      responses:
+        "200":
+          description: Paused
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureStatus"
+  /api/capture/resume:
+    post:
+      tags: [Capture]
+      summary: Resume capture globally
+      responses:
+        "200":
+          description: Resumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureStatus"
+  /api/capture/status:
+    get:
+      tags: [Capture]
+      summary: Read capture status
+      responses:
+        "200":
+          description: Capture status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureStatus"
+  /api/capture/blocklist:
+    patch:
+      tags: [Capture]
+      summary: Add or remove blocklisted domains, paths, or source apps
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                add:
+                  type: array
+                  items:
+                    type: string
+                remove:
+                  type: array
+                  items:
+                    type: string
+                domains:
+                  $ref: "#/components/schemas/BlocklistDelta"
+                paths:
+                  $ref: "#/components/schemas/BlocklistDelta"
+                source_apps:
+                  $ref: "#/components/schemas/BlocklistDelta"
+      responses:
+        "200":
+          description: Updated blocklist
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaptureStatus"
+  /api/settings:
+    get:
+      tags: [Capture]
+      summary: Read persisted capture settings
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsResponse"
+    patch:
+      tags: [Capture]
+      summary: Persist capture settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SettingsPatch"
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SettingsResponse"
+  /api/stats:
+    get:
+      tags: [Stats]
+      summary: Aggregate stats for the Stats UI
+      parameters:
+        - in: query
+          name: range
+          schema:
+            type: string
+            enum: [all, day, week, month, year]
+            default: all
+          description: Time range applied to every aggregate and chart series.
+      responses:
+        "200":
+          description: Stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsResponse"
+  /api/export:
+    get:
+      tags: [Export]
+      summary: Export prompts
+      parameters:
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [json, markdown]
+            default: json
+      responses:
+        "200":
+          description: Export download
+          content:
+            application/json: {}
+            text/markdown: {}
+  /api/import:
+    post:
+      tags: [Export]
+      summary: Import a previous JSON export
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Import summary
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [imported]
+                properties:
+                  imported:
+                    type: object
+                    properties:
+                      prompts:
+                        type: integer
+                      projects:
+                        type: integer
+                      tags:
+                        type: integer
+                      artifacts:
+                        type: integer
+  /ui:
+    get:
+      tags: [UI]
+      summary: Serve embedded SPA
+      security: []
+      responses:
+        "200":
+          description: HTML application shell
+          content:
+            text/html: {}
+  /ui/{path}:
+    get:
+      tags: [UI]
+      summary: Serve embedded SPA route
+      security: []
+      parameters:
+        - in: path
+          name: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: HTML application shell
+          content:
+            text/html: {}
+components:
+  securitySchemes:
+    KodaalToken:
+      type: apiKey
+      in: header
+      name: X-Kodaal-Token
+    UiSession:
+      type: apiKey
+      in: cookie
+      name: kg_ui_session
+  parameters:
+    PromptId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProjectId:
+      in: path
+      name: id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TagId:
+      in: path
+      name: tag_id
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ArtifactAid:
+      in: path
+      name: aid
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Q:
+      in: query
+      name: q
+      schema:
+        type: string
+    ProjectIdQuery:
+      in: query
+      name: project_id
+      schema:
+        type: string
+        format: uuid
+    SourceQuery:
+      in: query
+      name: source
+      schema:
+        $ref: "#/components/schemas/Source"
+    SourceAppQuery:
+      in: query
+      name: source_app
+      schema:
+        type: string
+    TagQuery:
+      in: query
+      name: tag
+      schema:
+        type: string
+    FavoriteQuery:
+      in: query
+      name: favorite
+      schema:
+        type: boolean
+    FromQuery:
+      in: query
+      name: from
+      schema:
+        type: string
+        format: date-time
+    ToQuery:
+      in: query
+      name: to
+      schema:
+        type: string
+        format: date-time
+    SortQuery:
+      in: query
+      name: sort
+      schema:
+        $ref: "#/components/schemas/SortField"
+    LimitQuery:
+      in: query
+      name: limit
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+    OffsetQuery:
+      in: query
+      name: offset
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+  schemas:
+    Source:
+      type: string
+      enum: [browser, desktop, ide, cli, mcp]
+    StorageMode:
+      type: string
+      enum: [reference, snapshot]
+    SortField:
+      type: string
+      enum: [created_desc, created_asc, use_count_desc, last_used_desc]
+    ProjectHint:
+      type: object
+      required: [type, value]
+      additionalProperties: false
+      properties:
+        type:
+          type: string
+          enum: [path, domain, cwd]
+        value:
+          type: string
+          minLength: 1
+          maxLength: 4096
+    CapturePayload:
+      type: object
+      required: [text, source, source_app]
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 1000000
+        source:
+          $ref: "#/components/schemas/Source"
+        source_app:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: "^[A-Za-z0-9._-]+$"
+        project_hint:
+          $ref: "#/components/schemas/ProjectHint"
+        conversation_id:
+          type: string
+          maxLength: 256
+        conversation_title:
+          type: string
+          maxLength: 200
+        client_timestamp:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+    CaptureResponse:
+      type: object
+      required: [id, deduped, use_count, project_id]
+      properties:
+        id:
+          type: string
+          format: uuid
+        deduped:
+          type: boolean
+        use_count:
+          type: integer
+          minimum: 1
+        project_id:
+          type: [string, "null"]
+          format: uuid
+    Prompt:
+      type: object
+      required: [id, text, source, source_app, project_id, project_name, conversation_id, conversation_title, use_count, favorite, tags, artifacts, metadata, redacted, redaction_reason, created_at, last_used_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        source:
+          $ref: "#/components/schemas/Source"
+        source_app:
+          type: string
+        project_id:
+          type: [string, "null"]
+          format: uuid
+        project_name:
+          type: [string, "null"]
+        conversation_id:
+          type: [string, "null"]
+        conversation_title:
+          type: [string, "null"]
+        use_count:
+          type: integer
+          minimum: 1
+        favorite:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        artifacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ArtifactSummary"
+        metadata:
+          type: object
+          additionalProperties: true
+        redacted:
+          type: boolean
+        redaction_reason:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+    PromptList:
+      type: object
+      required: [items, total, limit, offset]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Prompt"
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+        offset:
+          type: integer
+    PromptSuggestionList:
+      type: object
+      required: [enabled, surface, similar_count, min_chars, items]
+      properties:
+        enabled:
+          type: boolean
+        surface:
+          type: string
+          enum: [cli, ide]
+        similar_count:
+          type: integer
+          minimum: 0
+        min_chars:
+          type: integer
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PromptSuggestion"
+    PromptSuggestion:
+      type: object
+      required: [id, text, source, source_app, project_id, project_name, use_count, favorite, tags, score, matched_terms, created_at, last_used_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        source:
+          type: string
+          enum: [cli, ide]
+        source_app:
+          type: string
+        project_id:
+          type: [string, "null"]
+          format: uuid
+        project_name:
+          type: [string, "null"]
+        use_count:
+          type: integer
+          minimum: 1
+        favorite:
+          type: boolean
+        tags:
+          type: array
+          items:
+            type: string
+        score:
+          type: number
+        matched_terms:
+          type: array
+          items:
+            type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+    Project:
+      type: object
+      required: [id, name, path, color, prompt_count]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        path:
+          type: [string, "null"]
+        color:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
+        prompt_count:
+          type: integer
+          minimum: 0
+    Tag:
+      type: object
+      required: [id, name, count]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+    Artifact:
+      type: object
+      required: [id, prompt_id, filename, original_path, project_id, storage_mode, snapshot_size, mime_type, detection_mode, is_broken, created_at, last_verified_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        prompt_id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        original_path:
+          type: string
+        project_id:
+          type: [string, "null"]
+          format: uuid
+        storage_mode:
+          $ref: "#/components/schemas/StorageMode"
+        snapshot_size:
+          type: [integer, "null"]
+        mime_type:
+          type: [string, "null"]
+        detection_mode:
+          type: string
+          enum: [auto_watch, manual]
+        is_broken:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_verified_at:
+          type: [string, "null"]
+          format: date-time
+    ArtifactSummary:
+      type: object
+      required: [id, filename, project_id, is_broken, storage_mode]
+      properties:
+        id:
+          type: string
+          format: uuid
+        filename:
+          type: string
+        project_id:
+          type: [string, "null"]
+          format: uuid
+        is_broken:
+          type: boolean
+        storage_mode:
+          $ref: "#/components/schemas/StorageMode"
+    AttachArtifactRequest:
+      type: object
+      required: [path]
+      additionalProperties: false
+      properties:
+        path:
+          type: string
+        storage_mode:
+          $ref: "#/components/schemas/StorageMode"
+    CopyArtifactRequest:
+      type: object
+      required: [target_project_id, on_conflict]
+      additionalProperties: false
+      properties:
+        target_project_id:
+          type: string
+          format: uuid
+        on_conflict:
+          type: string
+          enum: [prompt, overwrite, rename, skip]
+    CopyArtifactResponse:
+      type: object
+      required: [copied, target_path, renamed_from]
+      properties:
+        copied:
+          type: boolean
+        target_path:
+          type: string
+        renamed_from:
+          type: [string, "null"]
+    ArtifactVerification:
+      type: object
+      required: [checked, broken, repaired]
+      properties:
+        checked:
+          type: integer
+          minimum: 0
+        broken:
+          type: integer
+          minimum: 0
+        repaired:
+          type: integer
+          minimum: 0
+    PruneRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        older_than:
+          type: string
+          format: date-time
+        shorter_than:
+          type: integer
+          minimum: 0
+        project_id:
+          type: string
+          format: uuid
+        source:
+          $ref: "#/components/schemas/Source"
+        dry_run:
+          type: boolean
+          default: true
+    PruneResponse:
+      type: object
+      required: [deleted, dry_run]
+      properties:
+        deleted:
+          type: integer
+          minimum: 0
+        dry_run:
+          type: boolean
+    ReuseResponse:
+      type: object
+      required: [use_count, last_used_at]
+      properties:
+        use_count:
+          type: integer
+          minimum: 1
+        last_used_at:
+          type: string
+          format: date-time
+    BlocklistDelta:
+      type: object
+      additionalProperties: false
+      properties:
+        add:
+          type: array
+          items:
+            type: string
+        remove:
+          type: array
+          items:
+            type: string
+    BlocklistConfig:
+      type: object
+      required: [domains, paths, source_apps]
+      properties:
+        domains:
+          type: array
+          items:
+            type: string
+        paths:
+          type: array
+          items:
+            type: string
+        source_apps:
+          type: array
+          items:
+            type: string
+    CaptureStatus:
+      type: object
+      required: [paused, blocklist, dedup_window_seconds]
+      properties:
+        paused:
+          type: boolean
+        blocklist:
+          $ref: "#/components/schemas/BlocklistConfig"
+        dedup_window_seconds:
+          type: integer
+    PruneDefaults:
+      type: object
+      additionalProperties: false
+      properties:
+        older_than_days:
+          type: [integer, "null"]
+          minimum: 1
+        shorter_than:
+          type: [integer, "null"]
+          minimum: 1
+        source:
+          anyOf:
+            - $ref: "#/components/schemas/Source"
+            - type: "null"
+        dry_run:
+          type: boolean
+    SettingsResponse:
+      type: object
+      required: [paused, blocklist, dedup_window_seconds, prune, suggestions]
+      properties:
+        paused:
+          type: boolean
+        blocklist:
+          $ref: "#/components/schemas/BlocklistConfig"
+        dedup_window_seconds:
+          type: integer
+        prune:
+          $ref: "#/components/schemas/PruneDefaults"
+        suggestions:
+          $ref: "#/components/schemas/SuggestionsConfig"
+    SettingsPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        paused:
+          type: boolean
+        blocklist:
+          $ref: "#/components/schemas/BlocklistConfig"
+        dedup_window_seconds:
+          type: integer
+          maximum: 3600
+        prune:
+          $ref: "#/components/schemas/PruneDefaults"
+        suggestions:
+          $ref: "#/components/schemas/SuggestionsPatch"
+    SuggestionsPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        cli_enabled:
+          type: boolean
+        ide_enabled:
+          type: boolean
+        min_chars:
+          type: integer
+          minimum: 10
+          maximum: 500
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 10
+    SuggestionsConfig:
+      type: object
+      required: [enabled, cli_enabled, ide_enabled, min_chars, limit]
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        cli_enabled:
+          type: boolean
+        ide_enabled:
+          type: boolean
+        min_chars:
+          type: integer
+          minimum: 10
+          maximum: 500
+        limit:
+          type: integer
+          minimum: 1
+          maximum: 10
+    StatsResponse:
+      type: object
+      required:
+        - range
+        - total_prompts
+        - total_projects
+        - total_artifacts
+        - total_copied
+        - total_deleted
+        - average_prompts_per_day
+        - average_prompts_per_project
+        - average_estimated_tokens_per_prompt
+        - most_used_platform
+        - by_source
+        - by_source_app
+        - overall_time_series
+        - platform_time_series
+        - provider_time_series
+        - by_day_last_30
+        - top_use_count
+        - top_projects
+      properties:
+        range:
+          type: string
+          enum: [all, day, week, month, year]
+        total_prompts:
+          type: integer
+        total_projects:
+          type: integer
+        total_artifacts:
+          type: integer
+        total_copied:
+          type: integer
+        total_deleted:
+          type: integer
+        average_prompts_per_day:
+          type: number
+        average_prompts_per_project:
+          type: number
+        average_estimated_tokens_per_prompt:
+          type: number
+        most_used_platform:
+          type: object
+        by_source:
+          type: object
+          additionalProperties:
+            type: integer
+        by_source_app:
+          type: array
+          items:
+            type: object
+            required: [source, source_app, count]
+            properties:
+              source:
+                $ref: "#/components/schemas/Source"
+              source_app:
+                type: string
+              count:
+                type: integer
+        overall_time_series:
+          type: array
+          items:
+            type: object
+            required: [bucket, count]
+            properties:
+              bucket:
+                type: string
+              count:
+                type: integer
+        platform_time_series:
+          type: array
+          items:
+            type: object
+            required: [bucket, source, count]
+            properties:
+              bucket:
+                type: string
+              source:
+                $ref: "#/components/schemas/Source"
+              count:
+                type: integer
+        provider_time_series:
+          type: array
+          items:
+            type: object
+            required: [bucket, source, source_app, count]
+            properties:
+              bucket:
+                type: string
+              source:
+                $ref: "#/components/schemas/Source"
+              source_app:
+                type: string
+              count:
+                type: integer
+        by_day_last_30:
+          type: array
+          items:
+            type: object
+        top_use_count:
+          type: array
+          items:
+            type: object
+        top_projects:
+          type: array
+          items:
+            type: object
+    HealthResponse:
+      type: object
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+  responses:
+    BadRequest:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: Conflict or paused capture
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    PayloadTooLarge:
+      description: Payload too large
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Gone:
+      description: Resource no longer available
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

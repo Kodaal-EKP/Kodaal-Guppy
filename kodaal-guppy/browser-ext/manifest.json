@@ -1,0 +1,73 @@
+{
+  "manifest_version": 3,
+  "name": "Kodaal Guppy",
+  "short_name": "Kodaal",
+  "version": "0.1.0",
+  "description": "Local-first prompt history. Captures AI prompts to a private store on this machine.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkTvaHHPBguJcrk8KeZBhA2c+nZ/R3+56Ah1igh8W8sqX0CqFkrDW3coDNEScLBBGg8o5vA/GtJ8L37GjPyBjKX9LVZjta6IQZc2S59iZFBycc7SC+68N1Pj5kaPP6uzS90zvMp4PZf166rpKTDBMTk9UTLjDAeG14jGG2ZvQfDqNGyf69k5uVGlICYJDdJmG6ZC0FuPyuwl7QfPmGHCLcytsS/tRm/UYxo080OMbHPZOaqXi/QVu8tMBCzjoTHtYMe/G11oi4W/5JNpKczl53tX9s24FFE0HyK1earlrvcCLvVPR3BflaQFOB75H4XS0cSat5N3eD3i/cybERJnKjQIDAQAB",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "guppy@kodaal.local"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "icons/icon-32.png",
+    "default_title": "Kodaal Guppy"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "nativeMessaging"
+  ],
+  "host_permissions": [
+    "https://claude.ai/*",
+    "https://chatgpt.com/*",
+    "https://chat.openai.com/*",
+    "https://gemini.google.com/*",
+    "https://perplexity.ai/*",
+    "https://www.perplexity.ai/*",
+    "http://127.0.0.1:7878/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*",
+        "https://perplexity.ai/*",
+        "https://www.perplexity.ai/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "sites.json"
+      ],
+      "matches": [
+        "https://claude.ai/*",
+        "https://chatgpt.com/*",
+        "https://chat.openai.com/*",
+        "https://gemini.google.com/*",
+        "https://perplexity.ai/*",
+        "https://www.perplexity.ai/*"
+      ]
+    }
+  ]
+}

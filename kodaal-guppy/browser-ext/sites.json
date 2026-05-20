@@ -1,0 +1,34 @@
+[
+  {
+    "name": "claude.ai",
+    "matches": ["https://claude.ai/*"],
+    "input_selectors": ["div[contenteditable='true'].ProseMirror", "div[contenteditable='true']"],
+    "submit_triggers": ["keydown:Enter:no-shift", "click:button[aria-label='Send Message']", "click:button[aria-label*='Send']"],
+    "conversation_id_from": "url_path_segment_after:/chat/",
+    "conversation_title_from": "selector:nav h2"
+  },
+  {
+    "name": "chatgpt.com",
+    "matches": ["https://chatgpt.com/*", "https://chat.openai.com/*"],
+    "input_selectors": ["div#prompt-textarea[contenteditable='true']", "textarea#prompt-textarea", "textarea"],
+    "submit_triggers": ["keydown:Enter:no-shift", "click:button[data-testid='send-button']", "click:button[aria-label*='Send']"],
+    "conversation_id_from": "url_path_segment_after:/c/",
+    "conversation_title_from": "selector:title"
+  },
+  {
+    "name": "gemini",
+    "matches": ["https://gemini.google.com/*"],
+    "input_selectors": ["div.ql-editor[contenteditable='true']", "div[contenteditable='true']"],
+    "submit_triggers": ["keydown:Enter:no-shift", "click:button[aria-label*='Send']"],
+    "conversation_id_from": "url_path_segment_after:/app/",
+    "conversation_title_from": "selector:div.conversation-title"
+  },
+  {
+    "name": "perplexity",
+    "matches": ["https://perplexity.ai/*", "https://www.perplexity.ai/*"],
+    "input_selectors": ["textarea[placeholder*='Ask']", "textarea"],
+    "submit_triggers": ["keydown:Enter:no-shift", "click:button[aria-label='Submit']", "click:button[aria-label*='Submit']"],
+    "conversation_id_from": "url_path_segment_after:/search/",
+    "conversation_title_from": "selector:title"
+  }
+]

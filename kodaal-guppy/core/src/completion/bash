@@ -1,0 +1,27 @@
+_kodaal()
+{
+  local cur prev commands
+  COMPREPLY=()
+  cur="${COMP_WORDS[COMP_CWORD]}"
+  prev="${COMP_WORDS[COMP_CWORD-1]}"
+  commands="start stop restart status pause resume search suggest recent show copy delete favorite tag untag prune import projects tags stats blocklist artifact export config rotate-token install uninstall completion doctor mcp-server version"
+  if [[ ${COMP_CWORD} -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "${commands}" -- "${cur}") )
+    return 0
+  fi
+  case "${prev}" in
+    completion)
+      COMPREPLY=( $(compgen -W "bash zsh fish powershell" -- "${cur}") )
+      ;;
+    projects)
+      COMPREPLY=( $(compgen -W "list show rename color delete" -- "${cur}") )
+      ;;
+    artifact)
+      COMPREPLY=( $(compgen -W "attach delete content copy storage" -- "${cur}") )
+      ;;
+    config)
+      COMPREPLY=( $(compgen -W "path show validate" -- "${cur}") )
+      ;;
+  esac
+}
+complete -F _kodaal kodaal

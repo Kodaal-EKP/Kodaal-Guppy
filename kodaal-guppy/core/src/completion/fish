@@ -1,0 +1,5 @@
+complete -c kodaal -f -n "__fish_use_subcommand" -a "start stop restart status pause resume search suggest recent show copy delete favorite tag untag prune import projects tags stats blocklist artifact export config rotate-token install uninstall completion doctor mcp-server version"
+complete -c kodaal -f -n "__fish_seen_subcommand_from completion" -a "bash zsh fish powershell"
+complete -c kodaal -f -n "__fish_seen_subcommand_from projects" -a "list show rename color delete"
+complete -c kodaal -f -n "__fish_seen_subcommand_from artifact" -a "attach delete content copy storage"
+complete -c kodaal -f -n "__fish_seen_subcommand_from config" -a "path show validate"

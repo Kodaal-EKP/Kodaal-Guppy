@@ -1,0 +1,13 @@
+[workspace]
+members = ["core", "tray-app"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+version = "0.1.0"
+license = "BUSL-1.1"
+
+[profile.release]
+debug = false
+incremental = false
+strip = "symbols"
