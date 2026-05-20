@@ -19,6 +19,8 @@ pub struct Config {
     pub backups: BackupConfig,
     #[serde(default)]
     pub watchers: WatchersConfig,
+    #[serde(default)]
+    pub ui: UiConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +95,13 @@ pub struct SuggestionsConfig {
     pub min_chars: u32,
     #[serde(default = "default_suggestion_limit")]
     pub limit: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct UiConfig {
+    #[serde(default = "default_ui_refresh_interval")]
+    pub refresh_interval_seconds: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -191,6 +200,14 @@ impl Default for SuggestionsConfig {
     }
 }
 
+impl Default for UiConfig {
+    fn default() -> Self {
+        Self {
+            refresh_interval_seconds: default_ui_refresh_interval(),
+        }
+    }
+}
+
 impl Default for BackupConfig {
     fn default() -> Self {
         Self {
@@ -265,6 +282,9 @@ impl Config {
         if self.watchers.backfill_days > 365 {
             return Err("watchers.backfill_days must be <= 365".to_string());
         }
+        if !(1..=3600).contains(&self.ui.refresh_interval_seconds) {
+            return Err("ui.refresh_interval_seconds must be 1-3600".to_string());
+        }
         Ok(())
     }
 
@@ -314,6 +334,9 @@ limit = 3
 [backups]
 keep_count = 7
 pre_migration_backup = true
+
+[ui]
+refresh_interval_seconds = 5
 
 [watchers]
 claude_code = "~/.claude/projects"
@@ -417,6 +440,10 @@ fn default_lapce_path() -> String {
 }
 fn default_true() -> bool {
     true
+}
+
+fn default_ui_refresh_interval() -> u32 {
+    5
 }
 
 fn validate_database_config(config: &DatabaseConfig) -> Result<(), String> {

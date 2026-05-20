@@ -1,28 +1,66 @@
 # Kodaal Guppy
 
-Kodaal Guppy is a local-first prompt workspace. It captures prompts from supported AI tools, stores them on your machine, and gives you a workspace for search, tags, projects, favorites, copy/reuse, deletion, export, and analytics.
+**Your prompts are everywhere. Guppy brings them home.**
 
-This public README is intentionally limited to what users need to run Guppy. Internal project planning, audits, private status notes, local paths, and personal information are not part of the public run documentation.
+You write prompts in the browser, in the terminal, in the IDE, and in desktop apps. They end up scattered across tabs, chat histories, log files, and copy-paste buffers. When you need that perfect phrasing again — for a refactor, a bugfix, or the next feature — you search from memory or start over.
 
-## What It Runs
+**Kodaal Guppy** is a local-first prompt workspace that captures what you actually send to AI tools, stores it on your machine, and gives you one place to search, tag, organize, reuse, and export it.
+
+---
+
+## The problem
+
+- Prompts live in **many surfaces** (Claude, ChatGPT, Gemini, Perplexity, Claude Code, Codex, Copilot, Cursor, and more).
+- There is **no shared history** across those tools.
+- Reuse means **remembering**, **digging**, or **rewriting** — not retrieving.
+- Cloud-only “prompt libraries” mean **your work leaves your machine** by default.
+
+---
+
+## The solution
+
+Guppy runs as a small daemon on your computer. It:
+
+1. **Captures** user-authored prompts from supported browser, CLI, IDE, and MCP surfaces.
+2. **Stores** them in a local SQLite database with full-text search, projects, tags, and favorites.
+3. **Serves** a workspace UI at `http://127.0.0.1:7878/ui` so you can find, copy, and reuse prompts without leaving your machine.
+
+One workspace. Every surface you already use.
+
+---
+
+## Why Guppy is different
+
+| | Guppy |
+|---|---|
+| **Local-first** | Data stays under your user profile (`~/.kodaal` or `%APPDATA%\Kodaal`). No cloud account required to work. Default config makes **no outbound network** calls. |
+| **Multi-surface** | Browser extension, CLI watchers, VS Code–family IDE extension, and MCP tools — not a single-app plugin. |
+| **Rust core** | Fast capture path, low idle overhead, and a single static binary model built for daily use alongside your editor and browser. |
+| **Security by design** | Loopback-only API, token auth, no prompt text in logs, domain blocklist, pause/resume, and audit events that use hashes — not raw prompt content. |
+
+---
+
+## What it runs
 
 | Surface | What Guppy captures |
 |---|---|
 | Web UI | Local prompt workspace at `http://127.0.0.1:7878/ui`. |
-| Browser extension | Browser prompts from supported providers including Claude, ChatGPT, Gemini, and Perplexity. |
+| Browser extension | Prompts from supported providers including Claude, ChatGPT, Gemini, and Perplexity. |
 | CLI watcher | Local prompt history and shell-hook captures for tools such as Claude Code, Codex, and Aider. |
-| IDE extension | VS Code-family prompt capture, project hints, and local similar-prompt suggestions. |
+| IDE extension | VS Code-family capture, project hints, and local similar-prompt suggestions. |
 | MCP server | Local MCP stdio tools through `kodaal mcp-server`. |
 
-## Run From Source
+---
+
+## Run from source
 
 Requirements:
 
-- Rust toolchain.
-- Git.
-- Node.js if you want to build or test the browser and IDE extensions.
+- Rust toolchain
+- Git
+- Node.js (if you build or test the browser and IDE extensions)
 
-Windows PowerShell:
+**Windows (PowerShell):**
 
 ```powershell
 git clone https://github.com/Kodaal-EKP/Kodaal-Guppy.git
@@ -31,7 +69,7 @@ cargo build --workspace
 .\target\debug\kodaal.exe start --detach
 ```
 
-macOS/Linux:
+**macOS / Linux:**
 
 ```bash
 git clone https://github.com/Kodaal-EKP/Kodaal-Guppy.git
@@ -40,25 +78,25 @@ cargo build --workspace
 ./target/debug/kodaal start --detach
 ```
 
-Open:
+Open `http://127.0.0.1:7878/ui` in your browser.
 
-```text
-http://127.0.0.1:7878/ui
-```
-
-Stop:
+Stop the daemon:
 
 ```powershell
 kodaal stop
 ```
 
-If you are running directly from `target/debug`, use `.\target\debug\kodaal.exe stop` on Windows or `./target/debug/kodaal stop` on macOS/Linux.
+If you run directly from `target/debug`, use `.\target\debug\kodaal.exe stop` on Windows or `./target/debug/kodaal stop` on macOS/Linux.
 
-## User Guide
+---
 
-Use [RUN_GUPPY.md](RUN_GUPPY.md) for platform-specific run steps, extension setup, smart suggestions, MCP setup, and troubleshooting.
+## User guide
 
-## Common Commands
+See [RUN_GUPPY.md](RUN_GUPPY.md) for platform-specific setup, extension install, MCP configuration, and troubleshooting.
+
+---
+
+## Common commands
 
 ```powershell
 kodaal status
@@ -69,7 +107,9 @@ kodaal favorite <prompt-id>
 kodaal export --format json --output guppy-export.json
 ```
 
-## Build Checks
+---
+
+## Build checks
 
 ```powershell
 cargo test --workspace
@@ -79,13 +119,15 @@ node ide-ext/vscode/scripts/validate-extension.mjs
 node --test ide-ext/vscode/tests/*.test.mjs
 ```
 
+---
+
 ## License
 
-Kodaal Guppy is licensed under the Business Source License 1.1.
+Kodaal Guppy is licensed under the **Business Source License 1.1**.
 
-- Licensor: Kodaal-EKP.
-- Additional Use Grant: free use for personal use and for organizations below the employee and revenue thresholds stated in [LICENSE](LICENSE).
-- Change License: Apache License 2.0.
-- Change Date: four years after each version's publication date.
+- **Licensor:** Kodaal-EKP
+- **Additional Use Grant:** free for personal use and for organizations below the employee and revenue thresholds in [LICENSE](LICENSE)
+- **Change License:** Apache License 2.0
+- **Change Date:** four years after each version’s publication date
 
 See [LICENSE](LICENSE) before commercial deployment.

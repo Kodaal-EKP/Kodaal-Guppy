@@ -1,4 +1,14 @@
 impl Database {
+    pub fn reset_statistics(&mut self, audit_log_path: &Path) -> Result<(), ApiError> {
+        self.conn
+            .execute("UPDATE prompts SET use_count = 1", [])
+            .map_err(ApiError::from)?;
+        fs::write(audit_log_path, "").map_err(|error| {
+            ApiError::internal(format!("failed to clear audit log: {error}"))
+        })?;
+        Ok(())
+    }
+
     pub fn stats(&self, audit_log_path: &Path, range: &str) -> Result<Value, ApiError> {
         let scope = StatsScope::new(range)?;
         let prompt_filter = scope.prompt_filter();

@@ -144,8 +144,8 @@
       width: 178px;
       height: 42px;
       display: block;
-      object-fit: cover;
-      object-position: center;
+      object-fit: contain;
+      object-position: left center;
     }
 
     .brand-logo-dark { display: none; }
@@ -353,15 +353,68 @@
       font-weight: 600;
     }
 
+    .projects-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 10px 6px;
+    }
+
+    .projects-toolbar.hidden {
+      display: none;
+    }
+
+    .project-select-all {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .project-select-all input,
+    .project-checkbox {
+      width: 14px;
+      height: 14px;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .project-bulk-delete {
+      height: 24px;
+      padding: 0 8px;
+      border: 1px solid color-mix(in srgb, var(--danger, #b42318) 35%, transparent);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--danger, #b42318);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .project-bulk-delete:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
     .project-nav-row {
       display: flex;
       align-items: center;
-      gap: 2px;
+      gap: 4px;
+      padding-left: 6px;
     }
 
     .project-nav-row .nav-item {
-      min-width: 0;
       flex: 1;
+      min-width: 0;
+    }
+
+    .project-nav-row.selected {
+      background: color-mix(in srgb, var(--accent-wash) 65%, transparent);
+      border-radius: 4px;
     }
 
     .project-actions {
@@ -1018,10 +1071,25 @@
       padding: 0 28px 28px;
     }
 
+    .stats-reset {
+      margin-left: auto;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid color-mix(in srgb, var(--danger, #b42318) 35%, transparent);
+      border-radius: 4px;
+      background: transparent;
+      color: var(--danger, #b42318);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
     .stats-toolbar {
       display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
       justify-content: flex-end;
-      gap: 6px;
       padding: 0 28px 14px;
     }
 
@@ -1453,6 +1521,13 @@
         <div id="primary-nav" class="nav-group"></div>
         <div class="nav-group">
           <button id="projects-toggle" class="section-head" type="button" aria-label="Toggle projects" aria-expanded="true"></button>
+          <div id="projects-toolbar" class="projects-toolbar hidden">
+            <label class="project-select-all">
+              <input id="projects-select-all" type="checkbox" aria-label="Select all projects">
+              <span>Select</span>
+            </label>
+            <button id="projects-delete-selected" type="button" class="project-bulk-delete" disabled>Delete</button>
+          </div>
           <div id="projects-list"></div>
         </div>
         <div class="local-panel">
@@ -1528,10 +1603,13 @@
       tags: [],
       stats: {},
       summaryStats: {},
-      settings: { blocklist: { domains: [], paths: [], source_apps: [] }, dedup_window_seconds: 60, prune: { dry_run: true }, suggestions: { enabled: false, cli_enabled: true, ide_enabled: true, min_chars: 24, limit: 3 } },
+      settings: { blocklist: { domains: [], paths: [], source_apps: [] }, dedup_window_seconds: 60, refresh_interval_seconds: 5, prune: { dry_run: true }, suggestions: { enabled: false, cli_enabled: true, ide_enabled: true, min_chars: 24, limit: 3 } },
+      refreshTimerId: null,
+      refreshInFlight: false,
       statsRange: "month",
       selectedId: "",
       selectedIds: new Set(),
+      selectedProjectIds: new Set(),
       selectionMode: false,
       expandedIds: new Set(),
       copiedId: "",
@@ -1595,6 +1673,9 @@
       settingsMenu: document.getElementById("settings-menu"),
       primaryNav: document.getElementById("primary-nav"),
       projectsToggle: document.getElementById("projects-toggle"),
+      projectsToolbar: document.getElementById("projects-toolbar"),
+      projectsSelectAll: document.getElementById("projects-select-all"),
+      projectsDeleteSelected: document.getElementById("projects-delete-selected"),
       projectsList: document.getElementById("projects-list"),
       localStats: document.getElementById("local-stats"),
       eyebrow: document.getElementById("eyebrow"),
@@ -1665,6 +1746,7 @@
           source_apps: Array.isArray(value?.blocklist?.source_apps) ? value.blocklist.source_apps : []
         },
         dedup_window_seconds: Number(value?.dedup_window_seconds || 60),
+        refresh_interval_seconds: Number(value?.refresh_interval_seconds || 5),
         prune: {
           older_than_days: value?.prune?.older_than_days || null,
           shorter_than: value?.prune?.shorter_than || null,
@@ -1693,30 +1775,95 @@
       return params;
     }
 
+    function refreshIntervalMs() {
+      const seconds = Number(state.settings.refresh_interval_seconds || 5);
+      if (!Number.isFinite(seconds) || seconds < 1) return 5000;
+      return Math.floor(seconds * 1000);
+    }
+
+    function stopRefreshTimer() {
+      if (state.refreshTimerId !== null) {
+        clearInterval(state.refreshTimerId);
+        state.refreshTimerId = null;
+      }
+    }
+
+    function startRefreshTimer() {
+      stopRefreshTimer();
+      state.refreshTimerId = window.setInterval(() => {
+        refreshWorkspace().catch(renderError);
+      }, refreshIntervalMs());
+    }
+
+    function rescheduleRefreshTimer() {
+      startRefreshTimer();
+    }
+
+    async function refreshWorkspace() {
+      if (state.refreshInFlight) return;
+      state.refreshInFlight = true;
+      try {
+        if (state.active === "stats") {
+          const stats = await api(`/api/stats?range=${encodeURIComponent(state.statsRange)}`);
+          state.stats = stats;
+        } else {
+          const [projects, tags, prompts, stats, favorites, capture, settings] = await Promise.all([
+            api("/api/projects"),
+            api("/api/tags"),
+            api(`/api/prompts?${promptParams()}`),
+            api("/api/stats?range=all"),
+            api("/api/prompts?favorite=true&limit=1"),
+            api("/api/capture/status"),
+            api("/api/settings")
+          ]);
+          state.projects = projects;
+          state.tags = tags;
+          state.stats = stats;
+          state.summaryStats = stats;
+          state.paused = Boolean(capture.paused);
+          state.settings = normalizeSettings(settings);
+          state.allTotal = Number(stats.total_prompts || 0);
+          state.favoriteTotal = Number(favorites.total || 0);
+          state.prompts = prompts.items;
+          state.total = Number(prompts.total || 0);
+          pruneSelection();
+          if (state.selectedId && !state.prompts.some(prompt => prompt.id === state.selectedId)) {
+            state.selectedId = state.prompts[0]?.id || "";
+          }
+        }
+        renderAll();
+      } finally {
+        state.refreshInFlight = false;
+      }
+    }
+
     async function loadInitial() {
       renderLoading();
       try {
-        const [projects, tags, stats, capture, favorites, prompts] = await Promise.all([
+        const [projects, tags, stats, capture, favorites, prompts, settings] = await Promise.all([
           api("/api/projects"),
           api("/api/tags"),
           api("/api/stats?range=all"),
           api("/api/capture/status"),
           api("/api/prompts?favorite=true&limit=1"),
-          api(`/api/prompts?${promptParams()}`)
+          api(`/api/prompts?${promptParams()}`),
+          api("/api/settings")
         ]);
         state.projects = projects;
         state.tags = tags;
         state.stats = stats;
         state.summaryStats = stats;
         state.paused = Boolean(capture.paused);
-        state.settings = normalizeSettings(capture);
+        state.settings = normalizeSettings(settings);
         state.allTotal = Number(stats.total_prompts || prompts.total || 0);
         state.favoriteTotal = Number(favorites.total || 0);
         state.prompts = prompts.items;
         state.total = Number(prompts.total || 0);
         pruneSelection();
+        pruneProjectSelection();
         if (!state.selectedId && state.prompts.length) state.selectedId = state.prompts[0].id;
         renderAll();
+        startRefreshTimer();
       } catch (error) {
         renderError(error);
       }
@@ -1729,18 +1876,19 @@
       }
       renderLoading();
       try {
-        const [prompts, stats, favorites, capture] = await Promise.all([
+        const [prompts, stats, favorites, capture, settings] = await Promise.all([
           api(`/api/prompts?${promptParams()}`),
           api("/api/stats?range=all"),
           api("/api/prompts?favorite=true&limit=1"),
-          api("/api/capture/status")
+          api("/api/capture/status"),
+          api("/api/settings")
         ]);
         state.stats = stats;
         state.summaryStats = stats;
         state.allTotal = Number(stats.total_prompts || 0);
         state.favoriteTotal = Number(favorites.total || 0);
         state.paused = Boolean(capture.paused);
-        state.settings = normalizeSettings(capture);
+        state.settings = normalizeSettings(settings);
         state.prompts = prompts.items;
         state.total = Number(prompts.total || 0);
         pruneSelection();
@@ -1801,6 +1949,7 @@
         menuButton(state.paused ? "Resume capture" : "Pause capture", () => toggleCaptureFromSettings().catch(renderError), false, state.paused ? "play" : "pause"),
         menuButton("Blocklist", () => editBlocklistSettings().catch(renderError), false, "filter"),
         menuButton("Dedup window", () => editDedupSettings().catch(renderError), false, "clock"),
+        menuButton(`Refresh every ${state.settings.refresh_interval_seconds || 5}s`, () => editRefreshSettings().catch(renderError), false, "clock"),
         menuButton(state.settings.suggestions.enabled ? "Disable suggestions" : "Enable suggestions", () => toggleSuggestionSettings().catch(renderError), false, "search"),
         menuButton("Prune defaults", () => editPruneSettings().catch(renderError), false, "trash"),
         menuInfo("Archive", "JSON"),
@@ -1842,6 +1991,39 @@
       }));
     }
 
+    function projectIds() {
+      return state.projects.map(project => project.id);
+    }
+
+    function pruneProjectSelection() {
+      const visible = new Set(projectIds());
+      state.selectedProjectIds = new Set([...state.selectedProjectIds].filter(id => visible.has(id)));
+    }
+
+    function renderProjectSelectionState() {
+      const ids = projectIds();
+      const selected = ids.filter(id => state.selectedProjectIds.has(id)).length;
+      const showToolbar = state.projectsOpen && ids.length > 0;
+      els.projectsToolbar.classList.toggle("hidden", !showToolbar);
+      if (!showToolbar) return;
+      els.projectsSelectAll.checked = ids.length > 0 && selected === ids.length;
+      els.projectsSelectAll.indeterminate = selected > 0 && selected < ids.length;
+      els.projectsDeleteSelected.disabled = selected === 0;
+      els.projectsDeleteSelected.textContent = selected > 1 ? `Delete (${selected})` : "Delete";
+    }
+
+    function toggleProjectSelected(id, checked) {
+      if (checked) state.selectedProjectIds.add(id);
+      else state.selectedProjectIds.delete(id);
+      renderProjects();
+    }
+
+    function toggleSelectAllProjects(checked) {
+      if (checked) projectIds().forEach(id => state.selectedProjectIds.add(id));
+      else state.selectedProjectIds.clear();
+      renderProjects();
+    }
+
     function renderProjects() {
       els.projectsToggle.replaceChildren(
         icon(state.projectsOpen ? "chevronDown" : "chevronRight"),
@@ -1851,10 +2033,19 @@
       els.projectsToggle.setAttribute("aria-expanded", state.projectsOpen ? "true" : "false");
       if (!state.projectsOpen) {
         els.projectsList.replaceChildren();
+        renderProjectSelectionState();
         return;
       }
       els.projectsList.replaceChildren(...state.projects.map(project => {
         const row = el("div", "project-nav-row");
+        row.classList.toggle("selected", state.selectedProjectIds.has(project.id));
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "project-checkbox";
+        checkbox.checked = state.selectedProjectIds.has(project.id);
+        checkbox.setAttribute("aria-label", `Select project ${project.name}`);
+        checkbox.addEventListener("click", event => event.stopPropagation());
+        checkbox.addEventListener("change", () => toggleProjectSelected(project.id, checkbox.checked));
         const node = buttonEl("nav-item", () => {
           state.activeProject = project.id;
           state.activeTag = "";
@@ -1879,9 +2070,10 @@
         more.setAttribute("aria-expanded", state.openProjectMenuId === project.id ? "true" : "false");
         more.append(icon("more"));
         actions.append(more, projectMenu(project));
-        row.append(node, actions);
+        row.append(checkbox, node, actions);
         return row;
       }));
+      renderProjectSelectionState();
     }
 
     function projectMenu(project) {
@@ -1993,6 +2185,10 @@
         node.textContent = label;
         toolbar.append(node);
       });
+      const resetBtn = buttonEl("stats-reset", () => resetStatistics().catch(renderError));
+      resetBtn.textContent = "Reset statistics";
+      resetBtn.setAttribute("aria-label", "Reset copy and delete statistics");
+      toolbar.append(resetBtn);
 
       const metrics = el("div", "stats-grid");
       const platform = state.stats.most_used_platform || {};
@@ -2694,6 +2890,22 @@
       await loadPrompts();
     }
 
+    async function editRefreshSettings() {
+      const value = prompt(
+        "UI refresh interval in seconds",
+        String(state.settings.refresh_interval_seconds || 5)
+      );
+      if (value === null) return;
+      const seconds = Number(value);
+      if (!Number.isInteger(seconds) || seconds < 1 || seconds > 3600) {
+        toast("Refresh interval must be 1-3600 seconds");
+        return;
+      }
+      await saveSettings({ refresh_interval_seconds: seconds });
+      rescheduleRefreshTimer();
+      toast(`Refresh interval set to ${seconds}s`);
+    }
+
     async function saveSettings(patch) {
       const settings = await api("/api/settings", {
         method: "PATCH",
@@ -2803,9 +3015,38 @@
       if (!confirm(`Delete project "${project.name}"?${suffix}`)) return;
       await api(`/api/projects/${encodeURIComponent(project.id)}`, { method: "DELETE" });
       if (state.activeProject === project.id) state.activeProject = "";
+      state.selectedProjectIds.delete(project.id);
       state.openProjectMenuId = "";
       toast("Project deleted");
       await loadInitial();
+    }
+
+    async function deleteSelectedProjects() {
+      const selected = state.projects.filter(project => state.selectedProjectIds.has(project.id));
+      if (!selected.length) return;
+      const promptTotal = selected.reduce((sum, project) => sum + Number(project.prompt_count || 0), 0);
+      const names = selected.length <= 3
+        ? selected.map(project => `"${project.name}"`).join(", ")
+        : `${selected.length} projects`;
+      const suffix = promptTotal > 0
+        ? ` ${formatNumber(promptTotal)} prompts will remain and move to No project.`
+        : "";
+      if (!confirm(`Delete ${names}?${suffix}`)) return;
+      await Promise.all(selected.map(project =>
+        api(`/api/projects/${encodeURIComponent(project.id)}`, { method: "DELETE" })
+      ));
+      if (selected.some(project => project.id === state.activeProject)) state.activeProject = "";
+      state.selectedProjectIds.clear();
+      state.openProjectMenuId = "";
+      toast(selected.length === 1 ? "Project deleted" : `Deleted ${selected.length} projects`);
+      await loadInitial();
+    }
+
+    async function resetStatistics() {
+      if (!confirm("Reset copy and delete statistics? Prompt counts stay; only usage stats and the audit log are cleared.")) return;
+      await api("/api/stats", { method: "POST" });
+      toast("Statistics reset");
+      await loadStats();
     }
 
     async function deleteSelectedPrompts() {
@@ -3034,6 +3275,14 @@
     els.projectsToggle.addEventListener("click", () => {
       state.projectsOpen = !state.projectsOpen;
       renderProjects();
+    });
+
+    els.projectsSelectAll.addEventListener("change", () => {
+      toggleSelectAllProjects(els.projectsSelectAll.checked);
+    });
+
+    els.projectsDeleteSelected.addEventListener("click", () => {
+      deleteSelectedProjects().catch(renderError);
     });
 
     els.detailClose.addEventListener("click", () => {

@@ -3,7 +3,7 @@ info:
   title: Kodaal Guppy Local API
   version: 0.1.0
   description: |
-    Machine-readable mirror of Docs/Specs/API_SPEC.md.
+    Machine-readable REST API contract for the local Guppy daemon.
     Bound to 127.0.0.1 by default. /api/* routes require either
     X-Kodaal-Token or the HttpOnly same-origin kg_ui_session cookie.
     /healthz, /ui, /ui/*, and OPTIONS preflights are explicitly unauthenticated.
@@ -528,6 +528,13 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/StatsResponse"
+    post:
+      tags: [Stats]
+      summary: Reset copy/delete statistics
+      description: Sets every prompt use_count to 1 and clears the audit log. Prompt rows are unchanged.
+      responses:
+        "204":
+          description: Statistics reset
   /api/export:
     get:
       tags: [Export]
@@ -1111,7 +1118,7 @@ components:
           type: boolean
     SettingsResponse:
       type: object
-      required: [paused, blocklist, dedup_window_seconds, prune, suggestions]
+      required: [paused, blocklist, dedup_window_seconds, refresh_interval_seconds, prune, suggestions]
       properties:
         paused:
           type: boolean
@@ -1119,6 +1126,10 @@ components:
           $ref: "#/components/schemas/BlocklistConfig"
         dedup_window_seconds:
           type: integer
+        refresh_interval_seconds:
+          type: integer
+          minimum: 1
+          maximum: 3600
         prune:
           $ref: "#/components/schemas/PruneDefaults"
         suggestions:
@@ -1133,6 +1144,10 @@ components:
           $ref: "#/components/schemas/BlocklistConfig"
         dedup_window_seconds:
           type: integer
+          maximum: 3600
+        refresh_interval_seconds:
+          type: integer
+          minimum: 1
           maximum: 3600
         prune:
           $ref: "#/components/schemas/PruneDefaults"

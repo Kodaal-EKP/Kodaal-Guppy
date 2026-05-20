@@ -17,6 +17,7 @@ pub struct CaptureState {
     pub paused: bool,
     pub blocklist: config::BlocklistConfig,
     pub dedup_window_seconds: u32,
+    pub ui_refresh_interval_seconds: u32,
     pub prune: config::PruneConfig,
     pub suggestions: config::SuggestionsConfig,
 }
@@ -34,6 +35,7 @@ impl AppState {
                 paused: config.capture.paused,
                 blocklist: config.capture.blocklist.clone(),
                 dedup_window_seconds: config.capture.dedup_window_seconds,
+                ui_refresh_interval_seconds: config.ui.refresh_interval_seconds,
                 prune: config.prune.clone(),
                 suggestions: config.suggestions.clone(),
             })),

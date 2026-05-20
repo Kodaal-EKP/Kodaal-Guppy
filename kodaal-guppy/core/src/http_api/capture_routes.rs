@@ -15,6 +15,7 @@ struct SettingsResponse {
     paused: bool,
     blocklist: crate::config::BlocklistConfig,
     dedup_window_seconds: u32,
+    refresh_interval_seconds: u32,
     prune: crate::config::PruneConfig,
     suggestions: crate::config::SuggestionsConfig,
 }
@@ -157,6 +158,7 @@ struct SettingsPatch {
     paused: Option<bool>,
     blocklist: Option<crate::config::BlocklistConfig>,
     dedup_window_seconds: Option<u32>,
+    refresh_interval_seconds: Option<u32>,
     prune: Option<crate::config::PruneConfig>,
     suggestions: Option<SuggestionsPatch>,
 }
@@ -180,6 +182,7 @@ async fn settings(State(state): State<AppState>) -> Result<Json<SettingsResponse
         paused: capture.paused,
         blocklist: capture.blocklist.clone(),
         dedup_window_seconds: capture.dedup_window_seconds,
+        refresh_interval_seconds: capture.ui_refresh_interval_seconds,
         prune: capture.prune.clone(),
         suggestions: capture.suggestions.clone(),
     }))
@@ -216,6 +219,15 @@ async fn update_settings(
                 .map_err(|_| ApiError::internal("db lock poisoned"))?
                 .set_dedup_window_seconds(seconds);
         }
+        if let Some(seconds) = patch.refresh_interval_seconds {
+            if !(1..=3600).contains(&seconds) {
+                return Err(ApiError::invalid_payload(
+                    "refresh_interval_seconds must be 1-3600",
+                    Some("refresh_interval_seconds"),
+                ));
+            }
+            capture.ui_refresh_interval_seconds = seconds;
+        }
         if let Some(prune) = patch.prune {
             validate_prune_settings(&prune)?;
             capture.prune = prune;
@@ -237,6 +249,7 @@ fn persist_capture_config(
     config.capture.paused = capture.paused;
     config.capture.blocklist = capture.blocklist.clone();
     config.capture.dedup_window_seconds = capture.dedup_window_seconds;
+    config.ui.refresh_interval_seconds = capture.ui_refresh_interval_seconds;
     config.prune = capture.prune.clone();
     config.suggestions = capture.suggestions.clone();
     config

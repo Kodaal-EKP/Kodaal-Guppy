@@ -582,6 +582,7 @@ async fn test_fr065_settings_persist_capture_blocklist_dedup_and_prune_defaults(
                 "source_apps": ["blocked-app"]
             },
             "dedup_window_seconds": 12,
+            "refresh_interval_seconds": 9,
             "prune": {
                 "older_than_days": 30,
                 "shorter_than": 20,
@@ -595,10 +596,12 @@ async fn test_fr065_settings_persist_capture_blocklist_dedup_and_prune_defaults(
     let body = json_response(response).await;
     assert_eq!(body["paused"], true);
     assert_eq!(body["dedup_window_seconds"], 12);
+    assert_eq!(body["refresh_interval_seconds"], 9);
     assert_eq!(body["prune"]["source"], "cli");
 
     let config = fs::read_to_string(dir.path().join("config.toml")).expect("config");
     assert!(config.contains("dedup_window_seconds = 12"));
+    assert!(config.contains("refresh_interval_seconds = 9"));
     assert!(config.contains("older_than_days = 30"));
     assert!(config.contains("\"blocked-app\""));
 
@@ -606,6 +609,38 @@ async fn test_fr065_settings_persist_capture_blocklist_dedup_and_prune_defaults(
     let status = json_response(status).await;
     assert_eq!(status["paused"], true);
     assert_eq!(status["blocklist"]["domains"][0], "claude.ai");
+}
+
+#[tokio::test]
+async fn test_ui_refresh_interval_defaults_to_five_and_rejects_invalid_values() {
+    let (dir, token, app) = test_state();
+    let settings = api_empty(app.clone(), &token, Method::GET, "/api/settings").await;
+    assert_eq!(settings.status(), 200);
+    assert_eq!(json_response(settings).await["refresh_interval_seconds"], 5);
+
+    let config = fs::read_to_string(dir.path().join("config.toml")).expect("config");
+    assert!(config.contains("refresh_interval_seconds = 5"));
+
+    let invalid = api_json(
+        app.clone(),
+        &token,
+        Method::PATCH,
+        "/api/settings",
+        json!({ "refresh_interval_seconds": 0 }),
+    )
+    .await;
+    assert_eq!(invalid.status(), 400);
+
+    let updated = api_json(
+        app,
+        &token,
+        Method::PATCH,
+        "/api/settings",
+        json!({ "refresh_interval_seconds": 15 }),
+    )
+    .await;
+    assert_eq!(updated.status(), 200);
+    assert_eq!(json_response(updated).await["refresh_interval_seconds"], 15);
 }
 
 #[tokio::test]
@@ -1170,6 +1205,66 @@ async fn test_fr064_stats_return_platform_activity_and_analytics() {
     assert_eq!(stats["platform_time_series"][0]["source"], "browser");
     assert_eq!(stats["provider_time_series"][0]["source_app"], "claude.ai");
     assert_eq!(stats["top_projects"][0]["prompt_count"], 1);
+}
+
+#[tokio::test]
+async fn test_reset_statistics_clears_copy_and_delete_counters() {
+    let (dir, token, app) = test_state();
+    let project_dir = dir.path().join("reset-stats-project");
+    fs::create_dir_all(&project_dir).expect("project dir");
+    let prompt = create_prompt_payload(
+        app.clone(),
+        &token,
+        json!({
+            "text": "prompt for stats reset",
+            "source": "browser",
+            "source_app": "claude.ai",
+            "project_hint": {"type": "path", "value": project_dir.to_string_lossy()}
+        }),
+    )
+    .await;
+    let prompt_id = prompt["id"].as_str().expect("prompt id").to_string();
+    assert_eq!(
+        api_empty(
+            app.clone(),
+            &token,
+            Method::POST,
+            &format!("/api/prompts/{prompt_id}/reuse"),
+        )
+        .await
+        .status(),
+        200
+    );
+    assert_eq!(
+        api_empty(
+            app.clone(),
+            &token,
+            Method::DELETE,
+            &format!("/api/prompts/{prompt_id}"),
+        )
+        .await
+        .status(),
+        204
+    );
+
+    let before = api_empty(app.clone(), &token, Method::GET, "/api/stats?range=all").await;
+    assert_eq!(before.status(), 200);
+    let before = json_response(before).await;
+    assert!(before["total_copied"].as_i64().unwrap_or(0) >= 1);
+    assert!(before["total_deleted"].as_i64().unwrap_or(0) >= 1);
+
+    assert_eq!(
+        api_empty(app.clone(), &token, Method::POST, "/api/stats")
+            .await
+            .status(),
+        204
+    );
+
+    let after = api_empty(app, &token, Method::GET, "/api/stats?range=all").await;
+    assert_eq!(after.status(), 200);
+    let after = json_response(after).await;
+    assert_eq!(after["total_copied"], 0);
+    assert_eq!(after["total_deleted"], 0);
 }
 
 #[tokio::test]

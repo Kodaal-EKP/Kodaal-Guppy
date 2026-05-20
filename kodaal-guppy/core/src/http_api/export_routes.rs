@@ -21,6 +21,16 @@ async fn stats(
     ))
 }
 
+async fn reset_statistics(State(state): State<AppState>) -> Result<StatusCode, ApiError> {
+    state
+        .db
+        .lock()
+        .map_err(|_| ApiError::internal("db lock poisoned"))?
+        .reset_statistics(&state.paths.audit_log_path)?;
+    append_audit(&state, "stats_reset".to_string())?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
 #[derive(serde::Deserialize)]
 struct ExportQuery {
     #[serde(default)]

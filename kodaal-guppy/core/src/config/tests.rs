@@ -56,6 +56,24 @@ fn test_fr065_config_rejects_invalid_prune_defaults() {
 }
 
 #[test]
+fn test_ui_refresh_interval_defaults_to_five_seconds() {
+    let config = Config::default();
+    assert_eq!(config.ui.refresh_interval_seconds, 5);
+    assert!(config.validate().is_ok());
+}
+
+#[test]
+fn test_ui_refresh_interval_rejects_out_of_range_values() {
+    let config = Config {
+        ui: UiConfig {
+            refresh_interval_seconds: 0,
+        },
+        ..Config::default()
+    };
+    assert!(config.validate().is_err());
+}
+
+#[test]
 fn test_fr111_config_rejects_invalid_suggestion_defaults() {
     let config = Config {
         suggestions: SuggestionsConfig {

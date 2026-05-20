@@ -63,7 +63,7 @@ pub fn router(state: AppState) -> Router {
         .route("/capture/status", get(capture_status))
         .route("/capture/blocklist", patch(update_blocklist))
         .route("/settings", get(settings).patch(update_settings))
-        .route("/stats", get(stats))
+        .route("/stats", get(stats).post(reset_statistics))
         .route("/export", get(export_data))
         .route("/import", post(import_data))
         .route_layer(middleware::from_fn_with_state(state.clone(), require_auth));
